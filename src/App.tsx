@@ -10,7 +10,7 @@ import {
   Sun,
   WifiOff,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,6 +33,11 @@ import {
   formatInterval,
   REFRESH_STEPS,
 } from "@/lib/trmnl-api";
+
+// ?kiosk in the URL: show only the screen, full-bleed, for wall tablets.
+// Tapping brings the normal controls back for 30 seconds.
+const KIOSK = new URLSearchParams(window.location.search).has("kiosk");
+const KIOSK_CHROME_MS = 30000;
 
 const THEME_OPTIONS = [
   { label: "Light", icon: Sun },
@@ -96,6 +101,15 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  const [showChrome, setShowChrome] = useState(false);
+
+  // Drop back to the bare screen once the controls have sat unused, but not
+  // while settings are open.
+  useEffect(() => {
+    if (!KIOSK || !showChrome || showSettings) return;
+    const timer = setTimeout(() => setShowChrome(false), KIOSK_CHROME_MS);
+    return () => clearTimeout(timer);
+  }, [showChrome, showSettings]);
 
   // The slider works in step indexes so the intervals are evenly spaced;
   // mapping by value would bunch the short ones up at the left.
@@ -176,6 +190,26 @@ function App() {
             <ThemeTabs idPrefix="welcome-theme" />
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (KIOSK && !showChrome && currentImage) {
+    return (
+      <div
+        className="fixed inset-0 flex items-center justify-center bg-black"
+        onClick={() => setShowChrome(true)}
+      >
+        <img
+          src={currentImage.url}
+          alt="TRMNL display"
+          className="h-full w-full object-contain"
+        />
+        {showDisconnected && (
+          <div className="absolute top-3 right-3 text-white/60">
+            <WifiOff size={18} />
+          </div>
+        )}
       </div>
     );
   }
