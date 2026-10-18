@@ -13,6 +13,13 @@ export default defineConfig({
     }),
     tailwindcss(),
   ],
+  build: {
+    // Fire tablets and other wall-mounted Android devices often run an old
+    // System WebView that can't parse modern syntax (?., ??=) and would show a
+    // blank page, so lower the syntax for them.
+    target: ['chrome64', 'safari12'],
+    cssTarget: ['chrome64', 'safari12'],
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

@@ -12,6 +12,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- If the app can't start (old WebView, blocked script), show why instead
+         of a blank white page. -->
+    <script>
+      window.addEventListener("error", function (e) {
+        var root = document.getElementById("root");
+        if (root && !root.children.length) {
+          root.style.cssText = "font:16px sans-serif;padding:24px;color:#000;background:#fff";
+          root.textContent = "TRMNL Web failed to start: " + (e.message || e) +
+            " | " + navigator.userAgent;
+        }
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
