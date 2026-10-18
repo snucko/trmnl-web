@@ -278,6 +278,21 @@ export async function fetchNextScreen(): Promise<string | null> {
     }
 
     const data = await response.json();
+
+    // TRMNL answers an unknown key with HTTP 200 and the real status in the
+    // body ({"status":500,"error":"Device not found"}), so check it here or a
+    // bad key looks like a device that simply hasn't rendered yet.
+    if (data.status && data.status !== 200 && !data.image_url) {
+      console.log("TRMNL rejected the request:", data.error);
+      updateState({
+        noScreenRendered: false,
+        retryCount: 0,
+        retryAfter: null,
+        lastError: { kind: "unauthorized", at: Date.now() },
+      });
+      return null;
+    }
+
     const imageUrl = data.image_url;
     const filename = data.filename || "display.jpg";
     const refreshRate = data.refresh_rate || DEFAULT_REFRESH_RATE;
@@ -436,6 +451,21 @@ export async function fetchImage(forceRefresh = false): Promise<string | null> {
     }
 
     const data = await response.json();
+
+    // TRMNL answers an unknown key with HTTP 200 and the real status in the
+    // body ({"status":500,"error":"Device not found"}), so check it here or a
+    // bad key looks like a device that simply hasn't rendered yet.
+    if (data.status && data.status !== 200 && !data.image_url) {
+      console.log("TRMNL rejected the request:", data.error);
+      updateState({
+        noScreenRendered: false,
+        retryCount: 0,
+        retryAfter: null,
+        lastError: { kind: "unauthorized", at: Date.now() },
+      });
+      return null;
+    }
+
     const imageUrl = data.image_url;
     const filename = data.filename || "display.jpg";
     const refreshRate = data.refresh_rate || DEFAULT_REFRESH_RATE;

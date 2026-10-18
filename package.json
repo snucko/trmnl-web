@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node scripts/lower-syntax.mjs",
+    "build": "tsc -b && vite build && node scripts/lower-syntax.mjs && node scripts/lower-css.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
