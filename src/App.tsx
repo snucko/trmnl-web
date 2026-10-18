@@ -39,6 +39,43 @@ import {
 const KIOSK = new URLSearchParams(window.location.search).has("kiosk");
 const KIOSK_CHROME_MS = 30000;
 
+// Extra pages to rotate with the TRMNL screen in kiosk mode, e.g.
+// ?kiosk&rotate=https://a.example,http://b.local:8080&every=60
+// Passing them once saves them, so the start URL can stay short afterwards;
+// ?rotate= with nothing after it clears the list.
+const ROTATE_KEY = "trmnl_kioskRotate";
+const EVERY_KEY = "trmnl_kioskEvery";
+
+function readRotation(): { pages: string[]; everyMs: number } {
+  const params = new URLSearchParams(window.location.search);
+  try {
+    if (params.has("rotate")) {
+      localStorage.setItem(ROTATE_KEY, params.get("rotate") ?? "");
+    }
+    if (params.has("every")) {
+      localStorage.setItem(EVERY_KEY, params.get("every") ?? "");
+    }
+  } catch {
+    // Storage unavailable; fall back to whatever the URL says.
+  }
+  let raw = params.get("rotate");
+  let every = params.get("every");
+  try {
+    raw = raw ?? localStorage.getItem(ROTATE_KEY);
+    every = every ?? localStorage.getItem(EVERY_KEY);
+  } catch {
+    // Ignore; use the URL values only.
+  }
+  const pages = (raw ?? "")
+    .split(",")
+    .map((page) => page.trim())
+    .filter((page) => /^https?:\/\//.test(page));
+  const seconds = Number(every) > 0 ? Number(every) : 60;
+  return { pages, everyMs: Math.max(10, seconds) * 1000 };
+}
+
+const ROTATION = KIOSK ? readRotation() : { pages: [], everyMs: 60000 };
+
 const THEME_OPTIONS = [
   { label: "Light", icon: Sun },
   { label: "Dark", icon: Moon },
@@ -102,6 +139,18 @@ function App() {
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const [showChrome, setShowChrome] = useState(false);
+  // 0 is the TRMNL screen; 1..n are the extra rotation pages.
+  const [slide, setSlide] = useState(0);
+  const slideCount = ROTATION.pages.length + 1;
+
+  useEffect(() => {
+    if (slideCount < 2 || showChrome) return;
+    const timer = setTimeout(
+      () => setSlide((current) => (current + 1) % slideCount),
+      ROTATION.everyMs
+    );
+    return () => clearTimeout(timer);
+  }, [slide, slideCount, showChrome]);
 
   // Drop back to the bare screen once the controls have sat unused, but not
   // while settings are open.
@@ -194,22 +243,40 @@ function App() {
     );
   }
 
-  if (KIOSK && !showChrome && currentImage) {
+  if (KIOSK && !showChrome && (currentImage || slide > 0)) {
     return (
-      <div
-        className="fixed inset-0 flex items-center justify-center bg-black"
-        onClick={() => setShowChrome(true)}
-      >
-        <img
-          src={currentImage.url}
-          alt="TRMNL display"
-          className="h-full w-full object-contain"
-        />
-        {showDisconnected && (
-          <div className="absolute top-3 right-3 text-white/60">
-            <WifiOff size={18} />
-          </div>
-        )}
+      <div className="fixed inset-0 bg-black">
+        {/* The TRMNL screen. Tapping it brings the controls back. */}
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ visibility: slide === 0 ? "visible" : "hidden" }}
+          onClick={() => setShowChrome(true)}
+        >
+          {currentImage && (
+            <img
+              src={currentImage.url}
+              alt="TRMNL display"
+              className="h-full w-full object-contain"
+            />
+          )}
+          {showDisconnected && (
+            <div className="absolute top-3 right-3 text-white/60">
+              <WifiOff size={18} />
+            </div>
+          )}
+        </div>
+        {/* Rotation pages stay loaded so they keep refreshing themselves
+            and don't flash white each time they come round. Taps go to the
+            page itself, so the controls are reached from the TRMNL slide. */}
+        {ROTATION.pages.map((page, index) => (
+          <iframe
+            key={page}
+            src={page}
+            title={page}
+            className="absolute inset-0 h-full w-full border-0 bg-white"
+            style={{ visibility: slide === index + 1 ? "visible" : "hidden" }}
+          />
+        ))}
       </div>
     );
   }
